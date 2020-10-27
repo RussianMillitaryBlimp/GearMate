@@ -45,13 +45,13 @@ m = PCD[1]/N_p
 p = np.pi*m
 
 if standard_modulus_required == True:
-    
+
     m = spur.choose_standard_m(m)
-    
+
     PCD = (m*N_w, m*N_p)
-    
+
     D_c = PCD[0]/2 + PCD[1]/2
-    
+
     print("New centre distance of %.3f mm selected"%(D_c*1e3))
 
 r_b = (np.cos(PA)*PCD[0]/2, np.cos(PA)*PCD[1]/2)
@@ -108,7 +108,12 @@ print("\nLewis bending stress is %.3f MPa"%(Sb*1e-6),
 
 # Hertzian contact stress
 
+C_p = (1/(np.pi*((1 - (v_p**2))/E_p + (1 - (v_w)**2)/E_w)))**0.5
 
+Sc = Kv*Kf*W_t*(2/(PCD[0]*np.sin(PA)) + 2/(PCD[1]*np.sin(PA)))/(F*np.cos(PA))
+
+print("Herzian contact stress is %.3f MPa"%(-Sc*1e-6),
+      "(facewidth of %.1f mm)"%(F*1e3))
 
 #-----------------------------------------------------------------------------#
 # Gear Life - This should be an extra section independant of the bending stress
