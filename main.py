@@ -5,17 +5,20 @@ Created on Sat Oct 24 17:24:06 2020
 @author: Teak
 """
 
-from __future__ import division
-import numpy as np
 import spur
+from math import pi
 
 #-----------------------------------------------------------------------------#
 # Inputs
 
-G_r = 3.33
-D_c = 100e-3
-PA = np.radians(20)
-N_p = 20
+# spur.main()
+
+PA = 20*pi/180
+F =  5e-3 # Facewidth in mm. Usually a factor of m.
+
+G_r = 3
+D_c = 90e-3
+N_p = 18
 
 standard_modulus_required = True # D_c will change to suit a standard module.
                                  # Note that the module will only be selected
@@ -23,25 +26,14 @@ standard_modulus_required = True # D_c will change to suit a standard module.
 
 profile = "CUT" # CUT/MILLED, GROUND/SHAVED, CAST/FORGED, HOBBED/SHAPED
 
-P = None  # kW
-T = 2     # Nm
-om = 3000 # RPM
-
-F =  5e-3 # Facewidth in mm. Usually a factor of m.
-
-v_p = 0.33
-v_w = 0.33
-E_p = 200e9
-E_w = 200e9
-
 #-----------------------------------------------------------------------------#
 # Check whether there is interference with current geometry
 
 minN_p = spur.minimum_involute_teeth(PA)
 
-print("Minimum pinion tooth count to avoid interference is %d"%minN_p)
+print("Minimum pinion tooth count to avoid interference is %d."%minN_p)
 
-if minN_p >= N_p:
+if minN_p > N_p:
     raise ValueError("Warning! Intersection detected between teeth.")
 
 #-----------------------------------------------------------------------------#
@@ -59,6 +51,15 @@ print("Module of %.1f mm selected, m_delta = %.2f"%(m*1e3, m_del))
 print("New centre distance of %.3f mm selected"%(D_c*1e3))
 
 #-----------------------------------------------------------------------------#
+
+v_p = 0.33
+v_w = 0.33
+E_p = 200e9
+E_w = 200e9
+
+P = None  # kW
+T = 2     # Nm
+om = 3000 # RPM
 
 pinion = spur.spurGear(PA, PCD[1], N[1], F)
 pinion.E = E_p; pinion.v = v_p

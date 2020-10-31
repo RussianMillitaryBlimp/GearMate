@@ -6,7 +6,9 @@ Created on Sat Oct 24 17:24:06 2020
 """
 
 from __future__ import division
-import numpy as np
+from math import pi, cos, acos, sin, tan, ceil
+from numpy import linalg, array, arange, linspace, float64
+import tkinter as tk
 
 #-----------------------------------------------------------------------------#
 # Classes
@@ -20,58 +22,66 @@ class spurGear():
         self.module = self.pitch/N
         self.addendum = self.pitch/2 + self.module
         self.dedendum = self.pitch/2 - 1.25*self.module
-        self.base = np.cos(self.pressureAngle)*self.pitch/2
+        self.base = cos(self.pressureAngle)*self.pitch/2
         self.root = spurGear.root_thickness(self)
         self.length = self.addendum - self.dedendum
         self.lewis = self.root**2 / (6 * self.module * self.length)
         self.Kf = spurGear.dolan_broghamer(self)
-        
+
+    def __gear_check(self, gear):
+        if type(gear) is not spurGear:
+            raise TypeError("Argument is not a spurGear type.")
+        elif round(self.pressureAngle, 3) != round(gear.pressureAngle, 3):
+            raise ValueError("Pressure angle is different between gears.")
+        elif round(self.module, 5) != round(gear.module, 5):
+            raise ValueError("Module is different between gears.")
+        else:     
+            pass
+
     def root_thickness(self):
         a = inv(self.dedendum, self.base)
-        b = inv_at_angle(a, 1.5*np.pi/self.teeth, True)
-        return np.linalg.norm(np.array(a)-np.array(b))
+        b = inv_at_angle(a, 1.5*pi/self.teeth, True)
+        return linalg.norm(array(a)-array(b))
     
     def force(self, T):
         W_t = (2*T)/self.pitch
-        W_r = W_t*np.tan(self.pressureAngle)
+        W_r = W_t*tan(self.pressureAngle)
         W = (W_r**2 + W_t**2)**0.5
         self.forces = (W, W_r, W_t)
         return self.forces
     
     def dolan_broghamer(self):
-        r = (self.dedendum - self.module)**2 / \
-            ((self.pitch/2) + self.dedendum - self.module)
+        r = (self.dedendum - self.module/2)**2 / \
+            ((self.pitch/2) + self.dedendum - self.module/2)
         H = 0.340 - 0.4583662*self.pressureAngle  
         L = 0.316 - 0.4583662*self.pressureAngle
         M = 0.290 + 0.4583662*self.pressureAngle
         return H + ((self.root/r)**(L))*((self.root/self.length)**(M))
     
     def action_length(self, gear):
-        if type(gear) is not spurGear:
-            raise TypeError("Argument is not a spurGear type.")
-        elif round(self.pressureAngle, 3) != round(gear.pressureAngle, 3):
-            raise ValueError("Pressure angle is different between gears.")
-        else:        
-            return (self.addendum**2 - self.base**2)**0.5 + \
-                   (gear.addendum**2 - gear.base**2)**0.5 - \
-                   (self.pitch + gear.pitch)*np.sin(self.pressureAngle)/2
+        self.__gear_check(gear)
+        return (self.addendum**2 - self.base**2)**0.5 + \
+               (gear.addendum**2 - gear.base**2)**0.5 - \
+               (self.pitch + gear.pitch)*sin(self.pressureAngle)/2
     
     def contact_ratio(self, gear):
         return self.action_length(gear) / \
-               (np.pi*self.module*np.cos(self.pressureAngle))
+               (pi*self.module*cos(self.pressureAngle))
         
     def Kv(self, om, profile = "CUT"):
-        V = self.pitch*om*np.pi/60
+        V = self.pitch*om*pi/60
         if profile == "CUT":
-            return (6.1 + V)/6.1
+            Kvel = (6.1 + V)/6.1
         elif profile == "GROUND":
-            return ((5.56 + V**0.5)/5.56)**0.5
+            Kvel = ((5.56 + V**0.5)/5.56)**0.5
         elif profile == "CAST":
-            return (3.05 + V)/3.05
+            Kvel = (3.05 + V)/3.05
         elif profile == "HOBBED":
-            return (3.56 + V**0.5)/3.56
+            Kvel = (3.56 + V**0.5)/3.56
         else:
             raise ValueError("Incorrect profile argument")
+        self.Kvel = Kvel
+        return Kvel
 
     def bending_stress(self, T, om):
         self.Sb = self.Kf * self.Kv(om) * self.force(T)[2] / \
@@ -79,26 +89,44 @@ class spurGear():
         return self.Sb
 
     def contact_stress(self, T, om, gear):
+        self.__gear_check(gear)
         try:
-            C_p = (1 / (np.pi*((1 - (self.v**2))/self.E + \
+            C_p = (1 / (pi*((1 - (self.v**2))/self.E + \
                                (1 - (gear.v**2))/gear.E)))**0.5
         except:
             raise AttributeError("Elastic gear properties undetected.")
 
         self.Sc = C_p * (self.Kf * self.Kv(om) * self.force(T)[2] * \
-                  (2 / (self.pitch*np.sin(self.pressureAngle)) + \
-                   2 / (gear.pitch*np.sin(gear.pressureAngle))) / \
-                  (self.facewidth*np.cos(self.pressureAngle)))**0.5
+                  (2 / (self.pitch*sin(self.pressureAngle)) + \
+                   2 / (gear.pitch*sin(gear.pressureAngle))) / \
+                  (self.facewidth*cos(self.pressureAngle)))**0.5
         return self.Sc
     
-    
+    def draw(self, pf=None, res=10):
+        if self.dedendum >= self.base:
+            r = linspace(self.dedendum, self.addendum, res)
+        elif self.base > self.dedendum:
+            r = linspace(self.base, self.addendum, res)
+        R = array([inv(ri, self.base) for ri in r])
+        a_1 = 2*pi*arange(self.teeth)/self.teeth
+        a_2 = a_1 + 1.5*pi/self.teeth
+        return R
 
 #-----------------------------------------------------------------------------#
 # Functions
 
+def main():
+    w1 = tk.Tk()
+    w1.title("Gear Calculator")
+    f1 = tk.Frame(w1, height=400, width=400)
+    PA = tk.Entry(w1)
+    f1.pack()
+    PA.pack()
+    PA.get()
+    w1.mainloop()
 
 def minimum_involute_teeth(PA):
-    return np.ceil(2*(1 + (1 + 3*(np.sin(PA)**2))**0.5)/(3*(np.sin(PA)**2)))
+    return ceil(2*(1 + (1 + 3*(sin(PA)**2))**0.5)/(3*(sin(PA)**2)))
 
 
 def adjust_gear_ratio(G, D_c, PA, N_p):
@@ -109,8 +137,8 @@ def adjust_gear_ratio(G, D_c, PA, N_p):
     
     PCD = define_PCD(G, D_c)
     
-    p = np.pi*PCD[1]/N_p
-    N_w = int(np.pi*PCD[0]/p)
+    p = pi*PCD[1]/N_p
+    N_w = int(pi*PCD[0]/p)
     
     G = float(N_w/N_p)
     
@@ -155,14 +183,14 @@ def choose_standard_m(N, PCD, standard_modulus_required=True):
 
 
 def inv(r, r_b):
-    if r < r_b:
+    if r < r_b if any([type(r) is float, type(r) is float64]) else any(r) < r_b:
         PW = 0
     else:
-        PW = np.arccos(r_b/r)
+        PW = acos(r_b/r)
     
-    M = np.tan(PW) - PW
+    M = tan(PW) - PW
     
-    return (r*np.cos(M), r*np.sin(M))
+    return (r*cos(M), r*sin(M))
 
 
 def inv_at_angle(f, phi, inverse = False):
@@ -174,7 +202,7 @@ def inv_at_angle(f, phi, inverse = False):
     else:
         raise ValueError("Inverse input is incorect.")
     
-    b = (f[0]*np.cos(phi)-n*f[1]*np.sin(phi),
-         f[0]*np.sin(phi)+n*f[1]*np.cos(phi))
+    b = (f[0]*cos(phi)-n*f[1]*sin(phi),
+         f[0]*sin(phi)+n*f[1]*cos(phi))
     
     return b
